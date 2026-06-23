@@ -1,12 +1,23 @@
 # Bank Account API
 
-A Spring Boot REST API for managing savings bank accounts.
+A Spring Boot REST API for managing savings bank accounts with PostgreSQL, Redis caching, and circuit breaker resilience.
+
+## Features
+
+- **Account Management**: Create and retrieve savings accounts
+- **Account Number Generation**: NZ-style account numbers (BB-bbbb-AAAAAAA-SS format)
+- **Account Nicknames**: Optional custom nicknames with profanity filtering
+- **Caching**: Redis-based caching with 10-minute TTL for GET requests
+- **Circuit Breaker**: Resilience4j circuit breaker for database resilience with cache fallback
+- **Validation**: Jakarta Bean Validation with custom profanity filter
+- **OpenAPI/Swagger**: Interactive API documentation
+- **Health Checks**: Spring Boot Actuator endpoints
 
 ## Requirements
 
-- Java 21+
+- Java 25
 - Maven 3.9+
-- Docker & Docker Compose (for Postgres and Redis)
+- Docker & Docker Compose (for PostgreSQL and Redis)
 
 ## Running Locally
 
@@ -17,10 +28,18 @@ docker-compose up -d
 ```
 
 This starts:
-- PostgreSQL on `localhost:5432` (database: `bankaccount`, user: `bankuser`, password: `bankpassword`)
-- Redis on `localhost:6379`
+- PostgreSQL 17 on `localhost:5432`
+- Redis 7 on `localhost:6379`
 
-### 2. Build and run
+### 2. Configure environment (optional)
+
+Copy `.env.example` to `.env` and customize:
+
+```bash
+cp .env.example .env
+```
+
+### 3. Build and run
 
 ```bash
 mvn spring-boot:run
@@ -28,7 +47,11 @@ mvn spring-boot:run
 
 The API will be available at `http://localhost:8080`.
 
----
+## API Documentation
+
+Swagger UI is available at: `http://localhost:8080/swagger-ui.html`
+
+OpenAPI spec at: `http://localhost:8080/v3/api-docs`
 
 ## API Endpoints
 
@@ -39,6 +62,8 @@ POST /api/v1/accounts
 Content-Type: application/json
 
 {
+  "bankCode": "03",
+  "branchCode": "0473",
   "customerName": "John Smith",
   "accountNickName": "MySavings"
 }
@@ -48,8 +73,11 @@ Content-Type: application/json
 ```json
 {
   "id": 1,
-  "accountNumber": "ACC-20240623-61983282",
-  "customerName": "John Smith",
+  "accountNumber": "03-0473-1234567-00",
+  "bankCode": "03",
+  "branchCode": "0473",
+  "accountType": "SAVINGS",
+  "customerName": "JOHN SMITH",
   "accountNickName": "MySavings",
   "createdAt": "2024-06-23T10:00:00"
 }
@@ -65,73 +93,107 @@ GET /api/v1/accounts/{accountNumber}
 ```json
 {
   "id": 1,
-  "accountNumber": "ACC-20240623-61983282",
-  "customerName": "John Smith",
+  "accountNumber": "03-0473-1234567-00",
+  "bankCode": "03",
+  "branchCode": "0473",
+  "accountType": "SAVINGS",
+  "customerName": "JOHN SMITH",
   "accountNickName": "MySavings",
   "createdAt": "2024-06-23T10:00:00"
 }
 ```
 
----
+## Business Rules
 
-## Validation Rules
+### Account Number Format
+- Format: `BB-bbbb-AAAAAAA-SS`
+- `BB`: 2-digit bank code
+- `bbbb`: 4-digit branch code
+- `AAAAAAA`: 7-digit account base (randomly generated, unique per bank/branch)
+- `SS`: 2-digit suffix (00 for first account, increments for subsequent accounts)
 
-| Field | Rule |
-|-------|------|
-| `customerName` | Mandatory, max 100 characters |
-| `accountNickName` | Optional, 5–30 characters if provided |
-| `accountNickName` | Must not contain offensive language |
-| Per customer | Maximum 5 accounts per customer name |
+### Account Limits
+- Maximum **5 accounts per customer** per bank/branch
+- Maximum **99 suffixes per account base** (00-99)
 
----
+### Account Nicknames
+- Optional field (5-30 characters if provided)
+- Must be **unique per customer/bank/branch** (case-insensitive)
+- Blank strings are treated as null
+- Must not contain offensive language (profanity filter)
+- Normalized to null if blank
+
+### Customer Name
+- Converted to uppercase for storage and comparison
 
 ## Error Responses
 
-All errors follow a consistent shape:
+All errors follow RFC 7807 Problem Details format:
 
 ```json
 {
+  "type": "https://api.bank.com/problems/validation-failed",
+  "title": "Validation Failed",
   "status": 400,
-  "error": "Validation Failed",
-  "message": "Request validation failed",
-  "timestamp": "2024-06-23T10:00:00",
-  "fieldErrors": [
-    { "field": "customerName", "message": "Customer name is required" }
-  ]
+  "detail": "Request validation failed",
+  "instance": "/api/v1/accounts"
 }
 ```
 
-| HTTP Status | Scenario |
-|-------------|----------|
-| `400` | Request validation failure |
-| `404` | Account not found |
-| `422` | Customer has reached the 5-account limit |
-| `503` | Database unavailable |
-
----
+| HTTP Status | Type | Scenario |
+|-------------|------|----------|
+| `400` | `validation-failed` | Request validation failure |
+| `400` | `duplicate-account-nickname` | Account nickname already exists for customer/bank/branch |
+| `404` | `account-not-found` | Account not found |
+| `422` | `account-limit-exceeded` | Customer has reached the 5-account limit |
+| `503` | `database-unavailable` | Database unavailable (circuit breaker open) |
 
 ## Architecture
 
 ```
-controller/       HTTP layer — request/response mapping, input validation
-service/          Business logic (interface + impl)
-repository/       Spring Data JPA repository
-entity/           JPA entity (Account)
-dto/              Request/response DTOs
-validation/       Custom @NotOffensiveNickName constraint + OffensiveWordsProvider
-exception/        Domain exceptions + GlobalExceptionHandler
-config/           Redis cache configuration
+domain/
+├── model/           Domain entities (Account, AccountType)
+├── service/         Business logic with circuit breaker
+├── port/
+│   ├── in/          Use case interfaces (CreateAccountUseCase, GetAccountUseCase)
+│   └── out/         Port interfaces (AccountPort, AccountCachePort)
+└── exception/       Domain exceptions
+
+adapter/
+├── in/
+│   ├── web/         REST controller, DTOs, validation, exception handler
+│   └── web/dto/     Request/response DTOs
+└── out/
+    ├── persistence/ JPA repository implementation
+    └── cache/       Redis cache implementation
+
+infrastructure/
+└── config/          Spring configuration (Redis, etc.)
 ```
 
-### Caching
+### Key Design Patterns
 
-GET calls are cached in Redis with a 10-minute TTL using `@Cacheable`. The cache key is the account number.
+- **Hexagonal Architecture**: Domain layer independent of infrastructure
+- **Circuit Breaker**: Service layer uses Resilience4j with cache fallback
+- **Caching**: Redis for GET requests with 10-minute TTL
+- **Repository Pattern**: Clean separation between domain and persistence
 
-### Database resilience
+## Dependencies
 
-`DataAccessException` from the repository layer is caught and rethrown as `DatabaseUnavailableException`, which maps to `503 Service Unavailable`. This ensures the client receives a clear, retryable error rather than a generic 500.
+### Runtime
+- Spring Boot 4.1.0
+- Spring Data JPA
+- PostgreSQL 17
+- Redis 7
+- Resilience4j 2.3.0
+- SpringDoc OpenAPI 2.8.6
+- Profanity Filter 1.0.1
 
----
+### Test
+- Spring Boot Test
+- Testcontainers 1.20.4 (PostgreSQL)
+- JUnit 5
+- Mockito
 
 ## Running Tests
 
@@ -139,15 +201,18 @@ GET calls are cached in Redis with a 10-minute TTL using `@Cacheable`. The cache
 mvn test
 ```
 
-Tests use an in-memory H2 database and simple cache (no Redis required).
+### Test Infrastructure
 
-Test coverage includes:
-- `AccountControllerTest` — MockMvc tests for all endpoints and error cases
-- `AccountServiceImplTest` — unit tests for business logic with mocked repository
-- `AccountRepositoryTest` — `@DataJpaTest` against H2
-- `CreateAccountRequestValidationTest` — constraint validation tests including offensive nick name detection
+Tests use **Testcontainers** with PostgreSQL 17 (not H2) for realistic integration testing.
 
----
+Test configuration:
+- PostgreSQL 17 container automatically started by Testcontainers
+- Redis disabled in tests (simple cache used)
+- 44 tests covering:
+  - Controller layer (`AccountControllerTest`)
+  - Service layer (`AccountServiceTest`)
+  - Persistence layer (`AccountJpaRepositoryTest`, `AccountPersistenceAdapterTest`)
+  - Validation (`CreateAccountRequestValidationTest`)
 
 ## Health Check
 
@@ -155,11 +220,43 @@ Test coverage includes:
 GET /actuator/health
 ```
 
----
+Includes circuit breaker status:
+```json
+{
+  "status": "UP",
+  "components": {
+    "circuitBreakers": {
+      "status": "UP",
+      "details": {
+        "account-service": {
+          "status": "UP",
+          "details": {
+            "failureRate": "0.0%",
+            "slowCallRate": "0.0%",
+            "state": "CLOSED"
+          }
+        }
+      }
+    }
+  }
+}
+```
 
-## Design Decisions & TODOs
+## Circuit Breaker Configuration
 
-- **Account number generation**: Currently uses `ACC-YYYYMMDD-RANDOMINT`. In production, use a database sequence or distributed ID generator (e.g. Snowflake) to guarantee uniqueness under concurrent load.
-- **Offensive words list**: Hardcoded in `OffensiveWordsProvider`. In production, load from a database table or integrate an external content moderation API (AWS Comprehend, Google Perspective) to allow runtime updates without redeployment.
-- **Customer identity**: The 5-account limit is enforced by `customerName` string matching. In a real system this would use a customer ID from an identity/auth system.
-- **Cache invalidation**: No cache eviction on writes; with a 10-minute TTL this is acceptable for a read-heavy API. Add `@CacheEvict` on mutation endpoints if needed.
+- **Name**: `account-service`
+- **Sliding Window Type**: Count-based
+- **Sliding Window Size**: 10 calls
+- **Failure Rate Threshold**: 50%
+- **Wait Duration in Open State**: 30s
+- **Permitted Calls in Half-Open State**: 3
+
+When the circuit breaker is open, the service falls back to Redis cache for GET requests. If cache miss, returns 503 Service Unavailable.
+
+## Assumptions & Design Decisions
+
+- **Account Base Generation**: Random 7-digit number (1,000,000 - 9,999,999) with uniqueness check. In production, consider a database sequence or distributed ID generator for guaranteed uniqueness under high concurrency.
+- **Customer Identity**: The 5-account limit is enforced by `customerName` string matching. In a real system, this would use a customer ID from an identity/auth system.
+- **Cache Invalidation**: No explicit cache eviction on writes. With 10-minute TTL, this is acceptable for read-heavy workloads. Consider adding `@CacheEvict` on mutation endpoints if stronger consistency is required.
+- **Profanity Filter**: Uses a hardcoded list. In production, load from a database table or integrate an external content moderation API (AWS Comprehend, Google Perspective) for runtime updates without redeployment.
+- **Account Nickname Uniqueness**: Enforced per customer/bank/branch combination, case-insensitive. Blank nicknames are normalized to null and not validated.
