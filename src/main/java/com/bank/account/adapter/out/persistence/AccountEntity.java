@@ -4,14 +4,15 @@ import jakarta.persistence.*;
 
 import com.bank.account.domain.model.AccountType;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "accounts")
 public class AccountEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(name = "account_number", unique = true, nullable = false, length = 20)
     private String accountNumber;
@@ -40,7 +41,7 @@ public class AccountEntity {
 
     protected AccountEntity() {}
 
-    public AccountEntity(Long id, String accountNumber, String bankCode, String branchCode,
+    public AccountEntity(UUID id, String accountNumber, String bankCode, String branchCode,
                          String accountBase, AccountType accountType, String customerName,
                          String accountNickName, LocalDateTime createdAt) {
         this.id = id;
@@ -59,7 +60,7 @@ public class AccountEntity {
         createdAt = LocalDateTime.now();
     }
 
-    public Long getId() { return id; }
+    public UUID getId() { return id; }
     public String getAccountNumber() { return accountNumber; }
     public String getBankCode() { return bankCode; }
     public String getBranchCode() { return branchCode; }

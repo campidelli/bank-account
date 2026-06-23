@@ -3,9 +3,10 @@ package com.bank.account.adapter.in.web.dto;
 import com.bank.account.domain.model.AccountType;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record AccountResponse(
-        Long id,
+        UUID id,
         String accountNumber,
         String bankCode,
         String branchCode,

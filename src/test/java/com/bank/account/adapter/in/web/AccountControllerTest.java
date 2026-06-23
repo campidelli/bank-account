@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -46,7 +47,7 @@ class AccountControllerTest {
 
     @Test
     void createAccount_validRequest_returns201() throws Exception {
-        Account account = new Account(1L, "03", "0473", "1234567", "00", AccountType.SAVINGS, "JOHN SMITH", "MyAccount", LocalDateTime.now());
+        Account account = new Account(UUID.randomUUID(), "03", "0473", "1234567", "00", AccountType.SAVINGS, "JOHN SMITH", "MyAccount", LocalDateTime.now());
         when(createAccountUseCase.createAccount(any())).thenReturn(account);
 
         mockMvc.perform(post("/api/v1/accounts")
@@ -144,7 +145,7 @@ class AccountControllerTest {
 
     @Test
     void getAccount_existingAccount_returns200() throws Exception {
-        Account account = new Account(1L, "03", "0473", "1234567", "00", AccountType.SAVINGS, "JOHN SMITH", null, LocalDateTime.now());
+        Account account = new Account(UUID.randomUUID(), "03", "0473", "1234567", "00", AccountType.SAVINGS, "JOHN SMITH", null, LocalDateTime.now());
         when(getAccountUseCase.getAccountByAccountNumber("03-0473-1234567-00")).thenReturn(account);
 
         mockMvc.perform(get("/api/v1/accounts/03-0473-1234567-00"))

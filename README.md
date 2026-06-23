@@ -72,7 +72,7 @@ Content-Type: application/json
 **Response `201 Created`:**
 ```json
 {
-  "id": 1,
+  "id": "550e8400-e29b-41d4-a716-446655440000",
   "accountNumber": "03-0473-1234567-00",
   "bankCode": "03",
   "branchCode": "0473",
@@ -92,7 +92,7 @@ GET /api/v1/accounts/{accountNumber}
 **Response `200 OK`:**
 ```json
 {
-  "id": 1,
+  "id": "550e8400-e29b-41d4-a716-446655440000",
   "accountNumber": "03-0473-1234567-00",
   "bankCode": "03",
   "branchCode": "0473",
@@ -255,6 +255,7 @@ When the circuit breaker is open, the service falls back to Redis cache for GET 
 
 ## Assumptions & Design Decisions
 
+- **Account ID**: Uses UUID instead of sequential Long IDs for better distribution and to avoid ID enumeration attacks. PostgreSQL `GenerationType.UUID` is used for automatic generation.
 - **Account Base Generation**: Random 7-digit number (1,000,000 - 9,999,999) with uniqueness check. In production, consider a database sequence or distributed ID generator for guaranteed uniqueness under high concurrency.
 - **Customer Identity**: The 5-account limit is enforced by `customerName` string matching. In a real system, this would use a customer ID from an identity/auth system.
 - **Cache Invalidation**: No explicit cache eviction on writes. With 10-minute TTL, this is acceptable for read-heavy workloads. Consider adding `@CacheEvict` on mutation endpoints if stronger consistency is required.

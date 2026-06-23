@@ -1,9 +1,10 @@
 package com.bank.account.domain.model;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record Account(
-        Long id,
+        UUID id,
         String bankCode,
         String branchCode,
         String accountBase,

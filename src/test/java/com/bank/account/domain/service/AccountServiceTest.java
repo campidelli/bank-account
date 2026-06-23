@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,7 +42,7 @@ class AccountServiceTest {
     private static final CreateAccountCommand COMMAND =
             new CreateAccountCommand(BANK, BRANCH, "Jane Doe", "JaneSavings");
 
-    private static Account account(long id, String base, String suffix, String nickname) {
+    private static Account account(UUID id, String base, String suffix, String nickname) {
         return new Account(id, BANK, BRANCH, base, suffix, AccountType.SAVINGS, "JANE DOE", nickname, LocalDateTime.now());
     }
 
@@ -51,7 +52,7 @@ class AccountServiceTest {
         when(accountPort.existsByBankAndBranchAndAccountBase(any(), any(), any())).thenReturn(false);
         when(accountPort.save(any())).thenAnswer(inv -> {
             Account a = inv.getArgument(0);
-            return new Account(1L, a.bankCode(), a.branchCode(), a.accountBase(), a.suffix(),
+            return new Account(UUID.randomUUID(), a.bankCode(), a.branchCode(), a.accountBase(), a.suffix(),
                     a.accountType(), a.customerName(), a.accountNickName(), LocalDateTime.now());
         });
 
@@ -65,10 +66,10 @@ class AccountServiceTest {
     @Test
     void createAccount_secondAccount_reusesBaseAndIncrementsSuffix() {
         when(accountPort.findByCustomerAndBankAndBranch("JANE DOE", BANK, BRANCH))
-                .thenReturn(List.of(account(1L, "1234567", "00", null)));
+                .thenReturn(List.of(account(UUID.randomUUID(), "1234567", "00", null)));
         when(accountPort.save(any())).thenAnswer(inv -> {
             Account a = inv.getArgument(0);
-            return new Account(2L, a.bankCode(), a.branchCode(), a.accountBase(), a.suffix(),
+            return new Account(UUID.randomUUID(), a.bankCode(), a.branchCode(), a.accountBase(), a.suffix(),
                     a.accountType(), a.customerName(), a.accountNickName(), LocalDateTime.now());
         });
 
@@ -82,10 +83,10 @@ class AccountServiceTest {
     @Test
     void createAccount_incrementsFromHighestSuffix() {
         when(accountPort.findByCustomerAndBankAndBranch("JANE DOE", BANK, BRANCH))
-                .thenReturn(List.of(account(1L, "1234567", "00", null), account(2L, "1234567", "01", null)));
+                .thenReturn(List.of(account(UUID.randomUUID(), "1234567", "00", null), account(UUID.randomUUID(), "1234567", "01", null)));
         when(accountPort.save(any())).thenAnswer(inv -> {
             Account a = inv.getArgument(0);
-            return new Account(3L, a.bankCode(), a.branchCode(), a.accountBase(), a.suffix(),
+            return new Account(UUID.randomUUID(), a.bankCode(), a.branchCode(), a.accountBase(), a.suffix(),
                     a.accountType(), a.customerName(), a.accountNickName(), LocalDateTime.now());
         });
 
@@ -97,9 +98,9 @@ class AccountServiceTest {
     @Test
     void createAccount_customerHas5Accounts_throwsAccountLimitExceededException() {
         List<Account> five = List.of(
-                account(1L, "1234567", "00", null), account(2L, "1234567", "01", null),
-                account(3L, "1234567", "02", null), account(4L, "1234567", "03", null),
-                account(5L, "1234567", "04", null)
+                account(UUID.randomUUID(), "1234567", "00", null), account(UUID.randomUUID(), "1234567", "01", null),
+                account(UUID.randomUUID(), "1234567", "02", null), account(UUID.randomUUID(), "1234567", "03", null),
+                account(UUID.randomUUID(), "1234567", "04", null)
         );
         when(accountPort.findByCustomerAndBankAndBranch("JANE DOE", BANK, BRANCH)).thenReturn(five);
 
@@ -119,7 +120,7 @@ class AccountServiceTest {
 
     @Test
     void getAccount_existingAccount_returnsAccount() {
-        Account a = account(1L, "1234567", "00", null);
+        Account a = account(UUID.randomUUID(), "1234567", "00", null);
         when(accountPort.findByAccountNumber("03-0473-1234567-00")).thenReturn(Optional.of(a));
 
         Account result = accountService.getAccountByAccountNumber("03-0473-1234567-00");
@@ -149,7 +150,7 @@ class AccountServiceTest {
     @Test
     void createAccount_duplicateNickname_throwsDuplicateAccountNicknameException() {
         when(accountPort.findByCustomerAndBankAndBranch("JANE DOE", BANK, BRANCH))
-                .thenReturn(List.of(account(1L, "1234567", "00", "JaneSavings")));
+                .thenReturn(List.of(account(UUID.randomUUID(), "1234567", "00", "JaneSavings")));
 
         assertThatThrownBy(() -> accountService.createAccount(COMMAND))
                 .isInstanceOf(DuplicateAccountNicknameException.class)
@@ -162,7 +163,7 @@ class AccountServiceTest {
     @Test
     void createAccount_duplicateNicknameDifferentCase_throwsDuplicateAccountNicknameException() {
         when(accountPort.findByCustomerAndBankAndBranch("JANE DOE", BANK, BRANCH))
-                .thenReturn(List.of(account(1L, "1234567", "00", "janesavings")));
+                .thenReturn(List.of(account(UUID.randomUUID(), "1234567", "00", "janesavings")));
 
         assertThatThrownBy(() -> accountService.createAccount(COMMAND))
                 .isInstanceOf(DuplicateAccountNicknameException.class);
@@ -175,7 +176,7 @@ class AccountServiceTest {
         when(accountPort.existsByBankAndBranchAndAccountBase(any(), any(), any())).thenReturn(false);
         when(accountPort.save(any())).thenAnswer(inv -> {
             Account a = inv.getArgument(0);
-            return new Account(1L, a.bankCode(), a.branchCode(), a.accountBase(), a.suffix(),
+            return new Account(UUID.randomUUID(), a.bankCode(), a.branchCode(), a.accountBase(), a.suffix(),
                     a.accountType(), a.customerName(), a.accountNickName(), LocalDateTime.now());
         });
 
@@ -190,7 +191,7 @@ class AccountServiceTest {
         when(accountPort.existsByBankAndBranchAndAccountBase(any(), any(), any())).thenReturn(false);
         when(accountPort.save(any())).thenAnswer(inv -> {
             Account a = inv.getArgument(0);
-            return new Account(1L, a.bankCode(), a.branchCode(), a.accountBase(), a.suffix(),
+            return new Account(UUID.randomUUID(), a.bankCode(), a.branchCode(), a.accountBase(), a.suffix(),
                     a.accountType(), a.customerName(), a.accountNickName(), LocalDateTime.now());
         });
 

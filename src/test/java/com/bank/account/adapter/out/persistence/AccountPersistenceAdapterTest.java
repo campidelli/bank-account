@@ -13,6 +13,7 @@ import org.springframework.dao.DataAccessResourceFailureException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,11 +40,11 @@ class AccountPersistenceAdapterTest {
     private static final String ACCOUNT_NUMBER = "03-0473-1234567-00";
 
     private AccountEntity entity() {
-        return new AccountEntity(1L, ACCOUNT_NUMBER, BANK, BRANCH, BASE, AccountType.SAVINGS, "Alice", null, null);
+        return new AccountEntity(UUID.randomUUID(), ACCOUNT_NUMBER, BANK, BRANCH, BASE, AccountType.SAVINGS, "Alice", null, null);
     }
 
     private Account domain() {
-        return new Account(1L, BANK, BRANCH, BASE, SUFFIX, AccountType.SAVINGS, "Alice", null, null);
+        return new Account(UUID.randomUUID(), BANK, BRANCH, BASE, SUFFIX, AccountType.SAVINGS, "Alice", null, null);
     }
 
     @Test
@@ -114,8 +115,9 @@ class AccountPersistenceAdapterTest {
         Account input = new Account(null, BANK, BRANCH, BASE, SUFFIX, AccountType.SAVINGS, "Bob", null, null);
         AccountEntity e = entity();
         LocalDateTime now = LocalDateTime.now();
-        AccountEntity saved = new AccountEntity(1L, ACCOUNT_NUMBER, BANK, BRANCH, BASE, AccountType.SAVINGS, "Bob", null, now);
-        Account savedDomain = new Account(1L, BANK, BRANCH, BASE, SUFFIX, AccountType.SAVINGS, "Bob", null, now);
+        UUID savedId = UUID.randomUUID();
+        AccountEntity saved = new AccountEntity(savedId, ACCOUNT_NUMBER, BANK, BRANCH, BASE, AccountType.SAVINGS, "Bob", null, now);
+        Account savedDomain = new Account(savedId, BANK, BRANCH, BASE, SUFFIX, AccountType.SAVINGS, "Bob", null, now);
 
         when(mapper.toEntity(input)).thenReturn(e);
         when(jpaRepository.save(e)).thenReturn(saved);
@@ -123,7 +125,7 @@ class AccountPersistenceAdapterTest {
 
         Account result = adapter.save(input);
 
-        assertThat(result.id()).isEqualTo(1L);
+        assertThat(result.id()).isEqualTo(savedId);
         assertThat(result.accountNumber()).isEqualTo(ACCOUNT_NUMBER);
     }
 
