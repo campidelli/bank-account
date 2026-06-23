@@ -1,6 +1,6 @@
 package com.bank.account.adapter.out.persistence;
 
-import com.bank.account.domain.exception.DatabaseUnavailableException;
+import com.bank.account.domain.exception.ServiceUnavailableException;
 import com.bank.account.domain.model.Account;
 import com.bank.account.domain.model.AccountType;
 import org.junit.jupiter.api.Test;
@@ -8,8 +8,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.dao.DataAccessResourceFailureException;
 
 import java.time.LocalDateTime;
@@ -30,9 +28,6 @@ class AccountPersistenceAdapterTest {
 
     @Mock
     private AccountMapper mapper;
-
-    @Mock
-    private CacheManager cacheManager;
 
     @InjectMocks
     private AccountPersistenceAdapter adapter;
@@ -71,7 +66,7 @@ class AccountPersistenceAdapterTest {
                 .thenThrow(new DataAccessResourceFailureException("down"));
 
         assertThatThrownBy(() -> adapter.findByCustomerAndBankAndBranch("Alice", BANK, BRANCH))
-                .isInstanceOf(DatabaseUnavailableException.class);
+                .isInstanceOf(ServiceUnavailableException.class);
     }
 
     @Test
@@ -86,7 +81,7 @@ class AccountPersistenceAdapterTest {
                 .thenThrow(new DataAccessResourceFailureException("down"));
 
         assertThatThrownBy(() -> adapter.existsByBankAndBranchAndAccountBase(BANK, BRANCH, BASE))
-                .isInstanceOf(DatabaseUnavailableException.class);
+                .isInstanceOf(ServiceUnavailableException.class);
     }
 
     @Test
@@ -109,27 +104,9 @@ class AccountPersistenceAdapterTest {
     void findByAccountNumber_databaseDown_throwsDatabaseUnavailableException() {
         when(jpaRepository.findByAccountNumber(any()))
                 .thenThrow(new DataAccessResourceFailureException("down"));
-        when(cacheManager.getCache("accounts")).thenReturn(null);
 
         assertThatThrownBy(() -> adapter.findByAccountNumber(ACCOUNT_NUMBER))
-                .isInstanceOf(DatabaseUnavailableException.class);
-    }
-
-    @Test
-    void findByAccountNumber_databaseDown_butCacheHit_returnsFromCache() {
-        Account cached = domain();
-        Cache.ValueWrapper valueWrapper = mock(Cache.ValueWrapper.class);
-        Cache cache = mock(Cache.class);
-
-        when(jpaRepository.findByAccountNumber(any()))
-                .thenThrow(new DataAccessResourceFailureException("down"));
-        when(cacheManager.getCache("accounts")).thenReturn(cache);
-        when(cache.get(ACCOUNT_NUMBER)).thenReturn(valueWrapper);
-        when(valueWrapper.get()).thenReturn(cached);
-
-        Optional<Account> result = adapter.findByAccountNumber(ACCOUNT_NUMBER);
-
-        assertThat(result).contains(cached);
+                .isInstanceOf(ServiceUnavailableException.class);
     }
 
     @Test
@@ -157,6 +134,6 @@ class AccountPersistenceAdapterTest {
         when(jpaRepository.save(any())).thenThrow(new DataAccessResourceFailureException("down"));
 
         assertThatThrownBy(() -> adapter.save(input))
-                .isInstanceOf(DatabaseUnavailableException.class);
+                .isInstanceOf(ServiceUnavailableException.class);
     }
 }

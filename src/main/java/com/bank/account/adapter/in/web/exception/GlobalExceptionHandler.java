@@ -2,7 +2,7 @@ package com.bank.account.adapter.in.web.exception;
 
 import com.bank.account.domain.exception.AccountLimitExceededException;
 import com.bank.account.domain.exception.AccountNotFoundException;
-import com.bank.account.domain.exception.DatabaseUnavailableException;
+import com.bank.account.domain.exception.ServiceUnavailableException;
 import com.bank.account.domain.exception.DuplicateAccountNicknameException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,8 +50,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(DatabaseUnavailableException.class)
-    public ProblemDetail handleDatabaseUnavailable(DatabaseUnavailableException ex) {
+    @ExceptionHandler(ServiceUnavailableException.class)
+    public ProblemDetail handleDatabaseUnavailable(ServiceUnavailableException ex) {
         log.error("Database unavailable", ex);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
         problem.setType(URI.create(TYPE_BASE + "database-unavailable"));

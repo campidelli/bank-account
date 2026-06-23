@@ -2,11 +2,12 @@ package com.bank.account.domain.service;
 
 import com.bank.account.domain.exception.AccountLimitExceededException;
 import com.bank.account.domain.exception.AccountNotFoundException;
-import com.bank.account.domain.exception.DatabaseUnavailableException;
+import com.bank.account.domain.exception.ServiceUnavailableException;
 import com.bank.account.domain.exception.DuplicateAccountNicknameException;
 import com.bank.account.domain.model.Account;
 import com.bank.account.domain.model.AccountType;
 import com.bank.account.domain.port.in.CreateAccountCommand;
+import com.bank.account.domain.port.out.AccountCachePort;
 import com.bank.account.domain.port.out.AccountPort;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +29,9 @@ class AccountServiceTest {
 
     @Mock
     private AccountPort accountPort;
+
+    @Mock
+    private AccountCachePort accountCachePort;
 
     @InjectMocks
     private AccountService accountService;
@@ -107,10 +111,10 @@ class AccountServiceTest {
     @Test
     void createAccount_portThrowsDatabaseUnavailable_propagates() {
         when(accountPort.findByCustomerAndBankAndBranch(any(), any(), any()))
-                .thenThrow(new DatabaseUnavailableException("DB down", new RuntimeException()));
+                .thenThrow(new ServiceUnavailableException("DB down", new RuntimeException()));
 
         assertThatThrownBy(() -> accountService.createAccount(COMMAND))
-                .isInstanceOf(DatabaseUnavailableException.class);
+                .isInstanceOf(ServiceUnavailableException.class);
     }
 
     @Test
@@ -136,10 +140,10 @@ class AccountServiceTest {
     @Test
     void getAccount_portThrowsDatabaseUnavailable_propagates() {
         when(accountPort.findByAccountNumber(any()))
-                .thenThrow(new DatabaseUnavailableException("DB down", new RuntimeException()));
+                .thenThrow(new ServiceUnavailableException("DB down", new RuntimeException()));
 
         assertThatThrownBy(() -> accountService.getAccountByAccountNumber("03-0473-1234567-00"))
-                .isInstanceOf(DatabaseUnavailableException.class);
+                .isInstanceOf(ServiceUnavailableException.class);
     }
 
     @Test
